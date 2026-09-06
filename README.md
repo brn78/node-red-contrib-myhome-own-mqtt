@@ -1,4 +1,4 @@
-﻿# node-red-contrib-myhome-own-mqtt
+# node-red-contrib-myhome-own-mqtt
 
 [![npm version](https://img.shields.io/npm/v/node-red-contrib-myhome-own-mqtt.svg)](https://www.npmjs.com/package/node-red-contrib-myhome-own-mqtt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -49,7 +49,7 @@ Esegui il seguente comando all'interno della cartella utente di Node-RED (solita
 
 ```bash
 cd ~/.node-red
-npm install brn78/node-red-contrib-myhome-own-mqtt
+npm install node-red-contrib-myhome-own-mqtt
 ```
 
 Oppure cerca `node-red-contrib-myhome-own-mqtt` direttamente nel **Gestore della Tavolozza (Palette Manager)** dell'interfaccia web di Node-RED.
@@ -65,9 +65,9 @@ Se utilizzi l'add-on Node-RED su Home Assistant:
 3. Nella sezione **npm packages**, inserisci:
    ```yaml
    npm_packages:
-     - brn78/node-red-contrib-myhome-own-mqtt
+     - node-red-contrib-myhome-own-mqtt
    ```
-4. Fai clic su **Salva** e **Riavvia** l'add-on. All'avvio, il modulo verrà scaricato e installato automaticamente.
+4. Fai clic su **Salva** e **Riavvia** l'add-on. All'avvio, il modulo verrà scaricato direttamente dal registro ufficiale npm.
 
 ---
 
