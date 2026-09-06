@@ -545,7 +545,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
     if (!state) state = new StateManager();
 
     const MANUFACTURER = options.manufacturer || "BTicino MyHome";
-    const POWERED_BY = options.poweredBy || "Antigravity";
+    const POWERED_BY = options.poweredBy || "Bruno Leonardi";
     const CONTACTS_NUMBER_REVERSED = (options.contactsReversed || []).map(String);
     const CLIMATE_ZONES_COUNT = parseInt(options.climateZonesCount, 10) || 0;
 

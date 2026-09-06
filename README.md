@@ -1,141 +1,159 @@
-# node-red-contrib-myhome-own-mqtt
+﻿# node-red-contrib-myhome-own-mqtt
 
 [![npm version](https://img.shields.io/npm/v/node-red-contrib-myhome-own-mqtt.svg)](https://www.npmjs.com/package/node-red-contrib-myhome-own-mqtt)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A professional, high-performance, and reliable **BTicino / Legrand MyHome SCS OpenWebNet (OWN) to MQTT** bidirectional bridge for **Node-RED**.
+Un bridge bidirezionale professionale, performante e affidabile tra **BTicino / Legrand MyHome SCS OpenWebNet (OWN)** e **MQTT** per **Node-RED**.
 
-Designed with **zero external dependencies** (uses native Node.js `net` and `crypto` modules) and featuring **dual outputs**:
-1. **MQTT Output**: Publishes structured topics and JSON payloads for home automation controllers and MQTT brokers.
-2. **OWN Output**: Emits the raw OpenWebNet bus frames *as-is* in plain text (e.g. `*1*1*21##`), ideal for logging, direct filtering, or custom processing.
+Progettato con **zero dipendenze esterne** (utilizza esclusivamente i moduli nativi Node.js `net` e `crypto`) e dotato di **doppia uscita**:
+1. **Uscita 1 (MQTT)**: invia topic strutturati e payload JSON formattati per broker MQTT e controller domotici (es. Home Assistant).
+2. **Uscita 2 (OWN)**: trasmette i frame grezzi OpenWebNet del bus *as-is* in chiaro (es. `*1*1*21##`), ideali per log, diagnostica, filtraggio o elaborazioni custom.
 
-Also includes optional **Home Assistant MQTT Auto-Discovery**, automatically publishing retained configuration topics so your lights, covers, thermostats, and contacts appear in Home Assistant without manual YAML!
-
----
-
-## Features
-
-- **Robust Gateway Connection**:
-  - Persistent TCP monitoring session (`*99*1##`) with automatic reconnection and exponential backoff (500ms to 30s).
-  - OpenWebNet authentication support: no password (authorized IP range), basic numeric password hash, and **HMAC SHA-1 / SHA-256** (for modern gateways like MyHOMEServer1, F454, MH200N).
-  - Safe, serialized command execution via command sessions (`*99*0##`) with configurable inter-command pacing delay.
-  - Periodic gateway heartbeat watchdog (`*#13**15##`).
-
-- **Complete Subsystem Translation**:
-  - **Lighting (WHO = 1)**: On, Off, Dimmer 10, Dimmer 100, Timed lights (11-18), Flashing/Blinking lights (20-29).
-  - **Automation / Shutters (WHO = 2)**: Open, Close, Stop, Position percentages.
-  - **Climate & Thermoregulation (WHO = 4)**: Heating, Cooling, Off, Auto modes; Master probe and Slave probes (t1–t8) temperatures; Setpoints and Offsets; Fan coil speeds; Valves and Actuators status; Split AC control.
-  - **Dry Contacts (WHO = 25)**: Contact open/closed states, with individual contact inversion support.
-  - **CEN & CEN+ Pushbuttons (WHO = 15, 25)**: Pressed, Released, Hold pressure, and Rotary Selectors (slow/quick clockwise/counter-clockwise).
-  - **Auxiliary Contacts (WHO = 9)**: Open / Closed.
-  - **Scenarios & Programming (WHO = 0, 17)**: Scenario trigger and Scene programmer states.
-  - **Gateway Diagnostics (WHO = 13)**: Model, firmware, uptime, date/time, IP, MAC address.
-  - **Actuator Lock / Disable (WHO = 14)**: Special light and disable modes.
-
-- **Dual Outputs**:
-  - **Output 1 (MQTT)**: `{ topic: "...", payload: "{...}", qos: 0, retain: false }`
-  - **Output 2 (OWN)**: `{ payload: "*1*1*21##", topic: "myhome/own/event" }`
-
-- **Optional Home Assistant MQTT Auto-Discovery**:
-  - Automatically generates standard discovery payloads (`homeassistant/<component>/.../config`) with `retain: true` for lights, covers, thermostats, contacts, and gateway connectivity.
+Include inoltre l'**Auto-Discovery MQTT per Home Assistant** opzionale, che genera e pubblica automaticamente i topic di configurazione persistenti (`retain: true`), rendendo luci, tapparelle, termostati e contatti immediatamente visibili in Home Assistant senza dover scrivere alcuna riga di YAML!
 
 ---
 
-## Installation
+## Caratteristiche Principali
 
-Run the following command in your Node-RED user directory (typically `~/.node-red`):
+- **Connessione Gateway Robusta e Resiliente**:
+  - Sessione TCP di monitoraggio persistente (`*99*1##`) con riconnessione automatica a backoff esponenziale (da 500 ms a 30 s).
+  - Supporto per tutti i metodi di autenticazione OpenWebNet: nessuna password (whitelist IP), password numerica OpenPass di base e **HMAC SHA-1 / SHA-256** (per gateway recenti come MyHOMEServer1, F454, MH200N).
+  - Esecuzione comandi sicura e serializzata tramite sessioni di comando dedicate (`*99*0##`) con intervallo di cadenza configurabile tra un invio e il successivo.
+  - Watchdog periodico dello stato di connessione con interrogazione diagnostica (`*#13**15##`).
+
+- **Traduzione Completa di Tutti i Sottosistemi**:
+  - **Illuminazione (WHO = 1)**: Acceso, Spento, Dimmer 10 livelli, Dimmer 100 livelli, Luci temporizzate (11-18), Luci lampeggianti (20-29).
+  - **Automazione / Tapparelle (WHO = 2)**: Salita/Apertura, Discesa/Chiusura, Stop, Percentuali di posizione.
+  - **Termoregolazione e Clima (WHO = 4)**: Riscaldamento, Condizionamento, Spento, Modalità Automatica; Sonda Master e Sonde Slave (t1–t8); Setpoint e Offset; Velocità Fan-Coil (automatica, bassa, media, alta); Stato valvole e attuatori; Controllo split.
+  - **Contatti Puliti / Interfacce (WHO = 25)**: Stato aperto/chiuso, con supporto all'inversione di polarità per singolo contatto.
+  - **Pulsanti CEN e CEN+ (WHO = 15, 25)**: Pressione breve, rilascio, pressione prolungata, selettori rotativi (rotazione oraria e antioraria lenta/veloce).
+  - **Contatti Ausiliari (WHO = 9)**: Aperto / Chiuso.
+  - **Scenari e Programmazione (WHO = 0, 17)**: Attivazione scenari e programmatore scenari.
+  - **Diagnostica Gateway (WHO = 13)**: Modello gateway, versione firmware, uptime, data/ora, indirizzo IP, MAC address.
+  - **Blocco / Disabilitazione Attuatori (WHO = 14)**: Modalità speciali e disattivazione.
+
+- **Doppia Uscita Indipendente**:
+  - **Uscita 1 (MQTT)**: `{ topic: "...", payload: "{...}", qos: 0, retain: false }`
+  - **Uscita 2 (OWN)**: `{ payload: "*1*1*21##", topic: "myhome/own/event" }`
+
+- **Home Assistant MQTT Auto-Discovery**:
+  - Genera payload conformi agli standard di Home Assistant (`homeassistant/<componente>/.../config`) con flag `retain: true` per luci, coperture/tapparelle, termostati, sensori binari per contatti e stato gateway.
+
+---
+
+## Installazione
+
+### In Node-RED Standard / Locale
+
+Esegui il seguente comando all'interno della cartella utente di Node-RED (solitamente `~/.node-red`):
 
 ```bash
 cd ~/.node-red
-npm install node-red-contrib-myhome-own-mqtt
+npm install brn78/node-red-contrib-myhome-own-mqtt
 ```
 
-Or install directly via the Node-RED Palette Manager by searching for `node-red-contrib-myhome-own-mqtt`.
+Oppure cerca `node-red-contrib-myhome-own-mqtt` direttamente nel **Gestore della Tavolozza (Palette Manager)** dell'interfaccia web di Node-RED.
 
 ---
 
-## Architecture & Wiring
+### In Home Assistant (Add-on Node-RED)
+
+Se utilizzi l'add-on Node-RED su Home Assistant:
+
+1. Apri **Home Assistant** e vai su **Impostazioni** → **Add-on** → **Node-RED**.
+2. Fai clic sulla scheda **Configurazione**.
+3. Nella sezione **npm packages**, inserisci:
+   ```yaml
+   npm_packages:
+     - brn78/node-red-contrib-myhome-own-mqtt
+   ```
+4. Fai clic su **Salva** e **Riavvia** l'add-on. All'avvio, il modulo verrà scaricato e installato automaticamente.
+
+---
+
+## Architettura e Cablaggio dei Flussi
 
 ```
                     ┌──────────────────────────────┐
-                    │    MyHome Gateway (TCP)      │
+                    │     Gateway MyHome (TCP)     │
                     └──────────────┬───────────────┘
                                    │ OpenWebNet
                                    ▼
-[MQTT in / Flow] ──► ┌───────────────────────────┐ ──► Port 1: [MQTT out / Broker]
-(Commands/Topics)    │  myhome-own-mqtt (Bridge) │
-                     └───────────────────────────┘ ──► Port 2: [Debug / OWN as-is]
+[MQTT in / Flow] ──► ┌───────────────────────────┐ ──► Uscita 1: [MQTT out / Broker]
+(Comandi / Topic)    │  myhome-own-mqtt (Bridge) │     (JSON formattato & Discovery)
+                     └───────────────────────────┘ ──► Uscita 2: [Debug / OWN as-is]
+                                                       (es. *1*1*21##)
 ```
 
 ---
 
-## MQTT Topic Reference
+## Riferimento dei Topic MQTT
 
-### Status Topics (Emitted on Output 1)
+### Topic di Stato (Emessi su Uscita 1)
 
-| Subsystem | MQTT Topic | Payload Example |
+| Sottosistema | Topic MQTT | Esempio di Payload |
 |---|---|---|
-| **Lighting** | `<WHERE>/<BUS>/light/myhome/status` | `{"state":"ON","brightness":255,"attributes":{...}}` |
-| **Automation** | `<WHERE>/<BUS>/cover/myhome/status` | `{"state":"opening","position":255,"attributes":{...}}` |
-| **Climate Action** | `<ZONE>/action/climate/myhome/status` | `{"state":"heating","attributes":{...}}` |
-| **Climate Temp** | `<ZONE>/temperature/climate/myhome/status` | `{"state":21.5,"attributes":{...}}` |
-| **Climate Slave** | `<ZONE>/<SLAVE>/temperature/climate/myhome/status` | `{"state":20.8,"attributes":{...}}` |
-| **Climate Setpoint**| `<ZONE>/setpoint/climate/myhome/status` | `{"state":20.5,"attributes":{...}}` |
-| **Climate Mode** | `<ZONE>/mode/climate/myhome/status` | `{"state":"heat","attributes":{...}}` |
-| **Climate Fan** | `<ZONE>/fan/climate/myhome/status` | `{"state":"medium","percentage":66,"attributes":{...}}` |
-| **Dry Contact** | `<NUMBER>/contact/myhome/status` | `{"state":"ON","attributes":{"contact_state":"CLOSED"}}` |
-| **Auxiliary** | `<WHERE>/aux/myhome/status` | `{"state":"ON","attributes":{"contact_state":"CLOSED"}}` |
-| **CEN Button** | `<WHERE>/<BUTTON>/<BUS>/button/myhome/status` | `{"state":"ON","trigger":"PRESSED","attributes":{...}}` |
-| **CEN+ Button**| `<WHERE>/<BUTTON>/button/plus/myhome/status` | `{"state":"ON","trigger":"PRESSED","attributes":{...}}` |
-| **Scenarios** | `<WHERE>/<WHAT>/<BUS>/scenarios/myhome/status` | `{"state":"ON","attributes":{"scenarios":1}}` |
-| **Scene** | `<WHERE>/<BUS>/scene/myhome/status` | `{"state":"ON","attributes":{"started":true}}` |
-| **Gateway Info** | `gateway/myhome/status` | `{"state":"ON","attributes":{"info":"F454"}}` |
-| **Connection** | `connection/myhome/status` | `{"state":"ON","attributes":{"function":"Connection watchdog"}}` |
+| **Luci** | `<WHERE>/<BUS>/light/myhome/status` | `{"state":"ON","brightness":255,"attributes":{...}}` |
+| **Automazione / Tapparelle** | `<WHERE>/<BUS>/cover/myhome/status` | `{"state":"opening","position":255,"attributes":{...}}` |
+| **Clima (Azione)** | `<ZONE>/action/climate/myhome/status` | `{"state":"heating","attributes":{...}}` |
+| **Clima (Temperatura)** | `<ZONE>/temperature/climate/myhome/status` | `{"state":21.5,"attributes":{...}}` |
+| **Clima (Sonda Slave)** | `<ZONE>/<SLAVE>/temperature/climate/myhome/status` | `{"state":20.8,"attributes":{...}}` |
+| **Clima (Setpoint)** | `<ZONE>/setpoint/climate/myhome/status` | `{"state":20.5,"attributes":{...}}` |
+| **Clima (Modalità)** | `<ZONE>/mode/climate/myhome/status` | `{"state":"heat","attributes":{...}}` |
+| **Clima (Fan Coil)** | `<ZONE>/fan/climate/myhome/status` | `{"state":"medium","percentage":66,"attributes":{...}}` |
+| **Contatto Pulito** | `<NUMBER>/contact/myhome/status` | `{"state":"ON","attributes":{"contact_state":"CLOSED"}}` |
+| **Ausiliari** | `<WHERE>/aux/myhome/status` | `{"state":"ON","attributes":{"contact_state":"CLOSED"}}` |
+| **Pulsante CEN** | `<WHERE>/<BUTTON>/<BUS>/button/myhome/status` | `{"state":"ON","trigger":"PRESSED","attributes":{...}}` |
+| **Pulsante CEN+** | `<WHERE>/<BUTTON>/button/plus/myhome/status` | `{"state":"ON","trigger":"PRESSED","attributes":{...}}` |
+| **Scenari** | `<WHERE>/<WHAT>/<BUS>/scenarios/myhome/status` | `{"state":"ON","attributes":{"scenarios":1}}` |
+| **Programmatore Scenari** | `<WHERE>/<BUS>/scene/myhome/status` | `{"state":"ON","attributes":{"started":true}}` |
+| **Info Gateway** | `gateway/myhome/status` | `{"state":"ON","attributes":{"info":"F454"}}` |
+| **Stato Connessione** | `connection/myhome/status` | `{"state":"ON","attributes":{"function":"Connection watchdog"}}` |
 
-`<BUS>` is `"00"` for the private riser or `"01"`–`"15"` for a local bus.
+`<BUS>` corrisponde a `"00"` per il montante principale oppure da `"01"` a `"15"` per un bus locale d'interfaccia.
 
 ---
 
-### Command Topics (Received on Input)
+### Topic di Comando (Ricevuti in Ingresso)
 
-| Command | MQTT Topic | Payload | Resulting OWN Frame |
+| Comando | Topic MQTT | Payload | Frame OWN Inviato al Bus |
 |---|---|---|---|
-| **Light On/Off** | `<WHERE>/<BUS>/light/myhome/set` | `"on"` / `"off"` | `*1*1*<WHERE>##` / `*1*0*<WHERE>##` |
-| **Light Dimmer** | `<WHERE>/<BUS>/brightness/myhome/set` | `0`–`255` | `*#1*<WHERE>*#1*<100-200>*0##` |
-| **Cover Control**| `<WHERE>/<BUS>/cover/myhome/set` | `"open"`, `"close"`, `"stop"` | `*2*1*<WHERE>##`, `*2*2*<WHERE>##`, `*2*0*<WHERE>##` |
-| **Climate Setpoint** | `<ZONE>/setpoint/climate/myhome/set` | `21.5` | `*#4*<ZONE>*#7*1*1*0215##` |
-| **Climate Delta**| `<ZONE>/setpoint/delta/climate/myhome/set` | `1` or `-1` | Adjusts setpoint and sends update |
-| **Climate Mode** | `<ZONE>/mode/climate/myhome/set` | `"heat"`, `"cool"`, `"auto"`, `"off"` | Sends mode command |
-| **Climate Fan** | `<ZONE>/fan/climate/myhome/set` | `"auto"`, `"low"`, `"medium"`, `"high"` | `*#4*<ZONE>*#11*<speed>##` |
-| **Scene Control**| `<WHERE>/<BUS>/scene/myhome/set` | `"on"`, `"off"`, `"enabled"`, `"disabled"` | `*17*<1-4>*<WHERE>##` |
-| **Scenarios** | `<WHERE>/<BUS>/scenarios/myhome/set` | `1`–`20` | `*0*<WHAT>*<WHERE>##` |
-| **System Sync** | `myhome/sync` or `sync/myhome/set` | any | Queries all configured contacts & zones |
-| **Direct OWN** | *(no topic or any topic)* | `"*1*1*21##"` or array | Sends command directly to SCS bus |
+| **Luce On/Off** | `<WHERE>/<BUS>/light/myhome/set` | `"on"` / `"off"` | `*1*1*<WHERE>##` / `*1*0*<WHERE>##` |
+| **Luce Dimmer** | `<WHERE>/<BUS>/brightness/myhome/set` | `0`–`255` | `*#1*<WHERE>*#1*<100-200>*0##` |
+| **Controllo Tapparelle** | `<WHERE>/<BUS>/cover/myhome/set` | `"open"`, `"close"`, `"stop"` | `*2*1*<WHERE>##`, `*2*2*<WHERE>##`, `*2*0*<WHERE>##` |
+| **Setpoint Clima** | `<ZONE>/setpoint/climate/myhome/set` | `21.5` | `*#4*<ZONE>*#7*1*1*0215##` |
+| **Delta Setpoint Clima** | `<ZONE>/setpoint/delta/climate/myhome/set` | `1` o `-1` | Incrementa o decrementa il setpoint |
+| **Modalità Clima** | `<ZONE>/mode/climate/myhome/set` | `"heat"`, `"cool"`, `"auto"`, `"off"` | Invia il comando di modalità corrispondente |
+| **Ventola Clima** | `<ZONE>/fan/climate/myhome/set` | `"auto"`, `"low"`, `"medium"`, `"high"` | `*#4*<ZONE>*#11*<velocità>##` |
+| **Controllo Scena** | `<WHERE>/<BUS>/scene/myhome/set` | `"on"`, `"off"`, `"enabled"`, `"disabled"` | `*17*<1-4>*<WHERE>##` |
+| **Attivazione Scenario** | `<WHERE>/<BUS>/scenarios/myhome/set` | `1`–`20` | `*0*<WHAT>*<WHERE>##` |
+| **Sincronizzazione** | `myhome/sync` oppure `sync/myhome/set` | qualsiasi | Interroga contatti puliti e zone climatiche |
+| **Comando Diretto OWN** | *(qualsiasi topic o non specificato)* | `"*1*1*21##"` o array | Invia direttamente la stringa al bus SCS |
 
 ---
 
-## Configuration Options
+## Opzioni di Configurazione
 
-### Gateway Node (`myhome-own-mqtt-gateway`)
-- **Host / IP**: IP address or hostname of the OpenWebNet gateway (e.g. `192.168.1.35`).
-- **Port**: Gateway OpenWebNet port (default: `20000`).
-- **Password**: Numeric OpenPass or alphanumeric HMAC password. Leave blank if IP range authentication is enabled.
-- **Keep-Alive**: Interval in seconds between keep-alive heartbeat frames (default: `60`).
-- **Inter-Command Delay**: Pacing delay in milliseconds between sequential commands sent to the bus (default: `50`).
+### Gateway (`myhome-own-mqtt-gateway`)
+- **Host / IP**: Indirizzo IP o hostname del gateway OpenWebNet (es. `192.168.1.35`).
+- **Porta**: Porta di comunicazione OpenWebNet (predefinita: `20000`).
+- **Password**: Password OpenPass numerica o HMAC alfanumerica. Lasciare vuoto se è attiva l'autorizzazione per intervallo IP.
+- **Keep-Alive**: Intervallo in secondi tra i frame di controllo heartbeat (predefinito: `60`).
+- **Inter-Command Delay**: Ritardo di cadenza in millisecondi tra comandi consecutivi inviati al bus (predefinito: `50`).
 
-### Main Node (`myhome-own-mqtt`)
-- **Climate Zones**: Comma-separated list of active climate zones (e.g. `0,21,22,23,24`). `0` represents the Central Unit.
-- **OFF Mode**: Select whether turning climate off sets `303` (standard OFF) or `302` (thermal/frost protection OFF).
-- **Dry Contacts**: Comma-separated list of dry contact numbers (e.g. `1,2,3,4`).
-- **Dry Contacts Reversed**: Comma-separated list of contacts whose polarity is reversed (e.g. `1,2`).
-- **Auto-Discovery**: Enable automatic Home Assistant MQTT discovery (`homeassistant/<component>/.../config`).
-- **Discovery Prefix**: MQTT discovery prefix (default: `homeassistant`).
-- **Auto Sync**: Automatically query states on gateway connection.
-- **Periodic Sync**: Periodic refresh interval in seconds (default: `300`).
-- **Watchdog**: Periodically checks gateway responsiveness.
+### Nodo Bridge Principale (`myhome-own-mqtt`)
+- **Zone Clima**: Elenco separato da virgole delle zone termoregolazione attive (es. `0,21,22,23,24`). `0` rappresenta la Centrale 4/99 zone.
+- **Modalità OFF Clima**: Seleziona se lo spegnimento imposta `303` (OFF standard) o `302` (Antigelo / Protezione termica).
+- **Contatti Puliti**: Elenco separato da virgole dei numeri dei contatti puliti / interfacce (es. `1,2,3,4`).
+- **Contatti Invertiti**: Elenco dei contatti la cui logica di apertura/chiusura è invertita (es. `1,2`).
+- **Auto-Discovery**: Attiva la pubblicazione automatica dei messaggi discovery per Home Assistant (`homeassistant/<componente>/.../config`).
+- **Prefisso Discovery**: Prefisso MQTT per il discovery (predefinito: `homeassistant`).
+- **Sincronizzazione Automatica**: Interroga lo stato dei dispositivi alla connessione del gateway.
+- **Sincronizzazione Periodica**: Intervallo in secondi per l'aggiornamento forzato dello stato (predefinito: `300`).
+- **Watchdog**: Abilita il controllo periodico dell'effettiva reattività del gateway.
 
 ---
 
-## License
+## Licenza
 
-MIT © 2026 Bruno Leonardi & Antigravity
+MIT © 2026 Bruno Leonardi

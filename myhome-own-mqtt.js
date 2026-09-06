@@ -58,7 +58,7 @@ module.exports = function (RED) {
             contacts_number: node.contacts_number,
             climate_zones: node.climate_zones,
             manufacturer: "BTicino MyHome",
-            poweredBy: "Antigravity"
+            poweredBy: "Bruno Leonardi"
         };
 
         /**
@@ -128,7 +128,7 @@ module.exports = function (RED) {
                 state: stateStr,
                 attributes: {
                     manufacturer: "BTicino MyHome",
-                    powered_by: "Antigravity",
+                    powered_by: "Bruno Leonardi",
                     function: "Connection watchdog"
                 }
             };
