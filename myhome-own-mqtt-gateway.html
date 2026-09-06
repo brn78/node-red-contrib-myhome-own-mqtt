@@ -1,0 +1,62 @@
+<script type="text/javascript">
+  RED.nodes.registerType('myhome-own-mqtt-gateway', {
+    category: 'config',
+    color: '#66B2FF',
+    defaults: {
+      name: { value: '', required: true },
+      host: { value: '', required: true },
+      port: { value: '20000', required: true, validate: RED.validators.number() },
+      pass: { value: '12345', required: false },
+      timeout: { value: '60', required: false, validate: RED.validators.number() },
+      intercommandsdelay: { value: '50', required: false, validate: RED.validators.number() }
+    },
+    label: function () {
+      return this.name || (this.host ? this.host + ':' + this.port : 'MyHome Gateway');
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="myhome-own-mqtt-gateway">
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" placeholder="MyHome Gateway">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-host"><i class="fa fa-server"></i> Host / IP</label>
+    <input type="text" id="node-config-input-host" placeholder="192.168.1.35">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label>
+    <input type="text" id="node-config-input-port" placeholder="20000">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-pass"><i class="fa fa-key"></i> Password / OpenPass</label>
+    <input type="password" id="node-config-input-pass" placeholder="12345 (leave empty if IP authorized)">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-timeout"><i class="fa fa-heartbeat"></i> Keep-Alive (s)</label>
+    <input type="text" id="node-config-input-timeout" placeholder="60">
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-intercommandsdelay"><i class="fa fa-clock-o"></i> Inter-Command Delay (ms)</label>
+    <input type="text" id="node-config-input-intercommandsdelay" placeholder="50">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="myhome-own-mqtt-gateway">
+  <p><b>BTicino / Legrand MyHome Gateway Configuration</b></p>
+  <p>Configures a persistent TCP connection to an OpenWebNet gateway (e.g. F454, MH200N, MHServer, MyHOMEServer1).</p>
+  <h3>Configuration parameters</h3>
+  <dl class="message-properties">
+    <dt>Host / IP <span class="property-type">string</span></dt>
+    <dd>IP address or hostname of the MyHome gateway.</dd>
+    <dt>Port <span class="property-type">number</span></dt>
+    <dd>TCP port for OpenWebNet service (default: 20000).</dd>
+    <dt>Password <span class="property-type">string</span></dt>
+    <dd>Gateway password. Supports basic numeric hash as well as HMAC SHA-1 and SHA-256. Leave blank if IP range is authorized without password.</dd>
+    <dt>Keep-Alive <span class="property-type">number</span></dt>
+    <dd>Interval in seconds between keep-alive heartbeat packets on the monitoring session (default: 60).</dd>
+    <dt>Inter-Command Delay <span class="property-type">number</span></dt>
+    <dd>Delay in milliseconds between sequential commands sent to the SCS bus (default: 50).</dd>
+  </dl>
+</script>

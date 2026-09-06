@@ -1,0 +1,193 @@
+<script type="text/javascript">
+  RED.nodes.registerType('myhome-own-mqtt', {
+    category: 'Bticino MyHome',
+    color: '#66B2FF',
+    defaults: {
+      name: { value: '' },
+      gateway: { type: 'myhome-own-mqtt-gateway', required: true },
+      contacts_number: { value: '' },
+      contacts_number_reversed: { value: '' },
+      climate_zones: { value: '' },
+      climate_off_mode: { value: '0' },
+      watchdog: { value: true },
+      watchdog_interval: { value: 60, validate: RED.validators.number() },
+      auto_sync: { value: true },
+      sync_interval: { value: 300, validate: RED.validators.number() },
+      mqtt_discovery: { value: false },
+      discovery_prefix: { value: 'homeassistant' },
+      debug_log: { value: false },
+      debug_warn: { value: true },
+      debug_error: { value: true }
+    },
+    inputs: 1,
+    outputs: 2,
+    inputLabels: ['Command (MQTT or OWN)'],
+    outputLabels: ['MQTT', 'OWN'],
+    icon: 'font-awesome/fa-star',
+    paletteLabel: 'MyHome MQTT',
+    label: function () {
+      return this.name || 'MyHome MQTT Bridge';
+    },
+    oneditprepare: function () {
+      let tabs = RED.tabs.create({
+        id: 'node-myhome-own-mqtt-tabs',
+        onchange: function (tab) {
+          $('#node-myhome-own-mqtt-tabs-content').children().hide();
+          $('#' + tab.id).show();
+        }
+      });
+      tabs.addTab({ id: 'myhome-tab-general', label: 'General' });
+      tabs.addTab({ id: 'myhome-tab-bus', label: 'SCS Bus' });
+      tabs.addTab({ id: 'myhome-tab-discovery', label: 'Auto-Discovery' });
+      tabs.addTab({ id: 'myhome-tab-debug', label: 'Debug' });
+
+      // Toggle discovery prefix input
+      $('#node-input-mqtt_discovery').on('change', function () {
+        if ($(this).is(':checked')) {
+          $('.discovery-prefix-row').show();
+        } else {
+          $('.discovery-prefix-row').hide();
+        }
+      });
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="myhome-own-mqtt">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="MyHome System">
+  </div>
+
+  <div class="form-row">
+    <label for="node-input-gateway"><i class="fa fa-server"></i> Gateway</label>
+    <input type="text" id="node-input-gateway">
+  </div>
+
+  <div class="form-row">
+    <ul style="min-width: 500px; margin-bottom: 20px;" id="node-myhome-own-mqtt-tabs"></ul>
+  </div>
+
+  <div id="node-myhome-own-mqtt-tabs-content" style="min-height: 280px;">
+    <!-- TAB 1: General -->
+    <div id="myhome-tab-general" style="display:none">
+      <div class="form-row">
+        <label for="node-input-auto_sync"><i class="fa fa-refresh"></i> Auto Sync</label>
+        <input type="checkbox" id="node-input-auto_sync" style="display:inline-block; width:auto; vertical-align:top;">
+        <span style="margin-left: 5px;">Query contacts and climate states on connect</span>
+      </div>
+      <div class="form-row">
+        <label for="node-input-sync_interval"><i class="fa fa-clock-o"></i> Sync Interval (s)</label>
+        <input type="text" id="node-input-sync_interval" placeholder="300 (0 to disable)">
+      </div>
+      <div class="form-row">
+        <label for="node-input-watchdog"><i class="fa fa-heartbeat"></i> Watchdog</label>
+        <input type="checkbox" id="node-input-watchdog" style="display:inline-block; width:auto; vertical-align:top;">
+        <span style="margin-left: 5px;">Check gateway responsiveness periodically</span>
+      </div>
+      <div class="form-row">
+        <label for="node-input-watchdog_interval"><i class="fa fa-clock-o"></i> Watchdog (s)</label>
+        <input type="text" id="node-input-watchdog_interval" placeholder="60">
+      </div>
+    </div>
+
+    <!-- TAB 2: SCS Bus -->
+    <div id="myhome-tab-bus" style="display:none">
+      <div class="form-row">
+        <label for="node-input-climate_zones"><i class="fa fa-thermometer-half"></i> Climate Zones</label>
+        <input type="text" id="node-input-climate_zones" placeholder="e.g. 0,21,22,23,24 (comma separated)">
+      </div>
+      <div class="form-row">
+        <label for="node-input-climate_off_mode"><i class="fa fa-power-off"></i> OFF Mode</label>
+        <select id="node-input-climate_off_mode" style="width:70%">
+          <option value="0">OFF Mode (303)</option>
+          <option value="1">OFF Protection Mode (302)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="node-input-contacts_number"><i class="fa fa-chain-broken"></i> Dry Contacts</label>
+        <input type="text" id="node-input-contacts_number" placeholder="e.g. 1,2,3,4 (comma separated)">
+      </div>
+      <div class="form-row">
+        <label for="node-input-contacts_number_reversed"><i class="fa fa-arrows-h"></i> Reversed</label>
+        <input type="text" id="node-input-contacts_number_reversed" placeholder="e.g. 1,2 (inverted contacts)">
+      </div>
+    </div>
+
+    <!-- TAB 3: Auto-Discovery -->
+    <div id="myhome-tab-discovery" style="display:none">
+      <div class="form-row">
+        <label for="node-input-mqtt_discovery"><i class="fa fa-magic"></i> Auto-Discovery</label>
+        <input type="checkbox" id="node-input-mqtt_discovery" style="display:inline-block; width:auto; vertical-align:top;">
+        <span style="margin-left: 5px;">Enable Home Assistant MQTT Auto-Discovery</span>
+      </div>
+      <div class="form-row discovery-prefix-row" style="display:none">
+        <label for="node-input-discovery_prefix"><i class="fa fa-folder"></i> Discovery Prefix</label>
+        <input type="text" id="node-input-discovery_prefix" placeholder="homeassistant">
+      </div>
+      <div class="form-tips" style="margin-top: 15px;">
+        <p>When enabled, discovery configuration payloads are published on <b>Output 1 (MQTT)</b> with <code>retain: true</code> for all discovered and configured devices (lights, covers, thermostats, contacts, gateway). Home Assistant will automatically create the corresponding entities without any YAML configuration.</p>
+      </div>
+    </div>
+
+    <!-- TAB 4: Debug -->
+    <div id="myhome-tab-debug" style="display:none">
+      <div class="form-row">
+        <label for="node-input-debug_log"><i class="fa fa-info-circle"></i> Info Logs</label>
+        <input type="checkbox" id="node-input-debug_log" style="display:inline-block; width:auto;">
+      </div>
+      <div class="form-row">
+        <label for="node-input-debug_warn"><i class="fa fa-exclamation-triangle"></i> Warnings</label>
+        <input type="checkbox" id="node-input-debug_warn" style="display:inline-block; width:auto;">
+      </div>
+      <div class="form-row">
+        <label for="node-input-debug_error"><i class="fa fa-bug"></i> Errors</label>
+        <input type="checkbox" id="node-input-debug_error" style="display:inline-block; width:auto;">
+      </div>
+    </div>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="myhome-own-mqtt">
+  <p><b>BTicino / Legrand MyHome SCS OpenWebNet &lt;-&gt; MQTT Bridge</b></p>
+  <p>Professional bidirectional bridge between BTicino MyHome SCS home automation system and MQTT, featuring dual outputs and optional Home Assistant Auto-Discovery.</p>
+
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt>topic <span class="property-type">string</span></dt>
+    <dd>MQTT command topic. Supported topics:
+      <ul>
+        <li><code>&lt;WHERE&gt;/&lt;BUS&gt;/light/myhome/set</code> (payload: <code>"on"</code>, <code>"off"</code>)</li>
+        <li><code>&lt;WHERE&gt;/&lt;BUS&gt;/brightness/myhome/set</code> (payload: 0-255)</li>
+        <li><code>&lt;WHERE&gt;/&lt;BUS&gt;/cover/myhome/set</code> (payload: <code>"open"</code>, <code>"close"</code>, <code>"stop"</code>)</li>
+        <li><code>&lt;WHERE&gt;/&lt;BUS&gt;/scene/myhome/set</code> (payload: <code>"on"</code>, <code>"off"</code>, <code>"enabled"</code>, <code>"disabled"</code>)</li>
+        <li><code>&lt;WHERE&gt;/&lt;BUS&gt;/scenarios/myhome/set</code> (payload: 1-20)</li>
+        <li><code>&lt;ZONE&gt;/setpoint/climate/myhome/set</code> (payload: temperature e.g. 21.5)</li>
+        <li><code>&lt;ZONE&gt;/setpoint/delta/climate/myhome/set</code> (payload: delta e.g. 1 or -1)</li>
+        <li><code>&lt;ZONE&gt;/mode/climate/myhome/set</code> (payload: <code>"heat"</code>, <code>"cool"</code>, <code>"auto"</code>, <code>"off"</code>)</li>
+        <li><code>&lt;ZONE&gt;/fan/climate/myhome/set</code> (payload: <code>"auto"</code>, <code>"low"</code>, <code>"medium"</code>, <code>"high"</code>)</li>
+        <li><code>myhome/sync</code> or <code>sync/myhome/set</code> (refreshes all contacts and climate zones)</li>
+      </ul>
+    </dd>
+    <dt>payload <span class="property-type">string | array</span></dt>
+    <dd>Command payload, or raw OpenWebNet command frame (e.g. <code>*1*1*21##</code> or <code>["*1*1*21##", "*1*0*22##"]</code>).</dd>
+  </dl>
+
+  <h3>Outputs</h3>
+  <ol class="node-ports">
+    <li><b>Output 1: MQTT</b>
+      <dl class="message-properties">
+        <dt>topic <span class="property-type">string</span></dt>
+        <dd>MQTT status topic (e.g. <code>21/00/light/myhome/status</code>, <code>1/temperature/climate/myhome/status</code>, <code>connection/myhome/status</code>, or discovery topics).</dd>
+        <dt>payload <span class="property-type">string (JSON)</span></dt>
+        <dd>JSON formatted state and attributes.</dd>
+      </dl>
+    </li>
+    <li><b>Output 2: OWN (as-is)</b>
+      <dl class="message-properties">
+        <dt>payload <span class="property-type">string</span></dt>
+        <dd>The raw OpenWebNet frame as received from the SCS bus (e.g. <code>*1*1*21##</code>, <code>*#4*1*0*0215##</code>).</dd>
+      </dl>
+    </li>
+  </ol>
+</script>

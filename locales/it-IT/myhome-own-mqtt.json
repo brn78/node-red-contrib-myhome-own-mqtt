@@ -1,0 +1,26 @@
+{
+  "myhome-own-mqtt": {
+    "label": {
+      "name": "Nome",
+      "gateway": "Gateway",
+      "auto_sync": "Auto Sincronizzazione alla connessione",
+      "sync_interval": "Intervallo sincronizzazione periodica (s)",
+      "watchdog": "Watchdog gateway",
+      "watchdog_interval": "Intervallo watchdog (s)",
+      "climate_zones": "Zone clima",
+      "climate_off_mode": "Modalità OFF clima",
+      "contacts_number": "Contatti puliti",
+      "contacts_number_reversed": "Contatti puliti invertiti",
+      "mqtt_discovery": "Auto-Discovery Home Assistant",
+      "discovery_prefix": "Prefisso discovery",
+      "debug_log": "Log informativo",
+      "debug_warn": "Avvisi di debug",
+      "debug_error": "Errori di debug"
+    },
+    "status": {
+      "connected": "Connesso",
+      "disconnected": "Disconnesso",
+      "initializing": "Inizializzazione..."
+    }
+  }
+}
