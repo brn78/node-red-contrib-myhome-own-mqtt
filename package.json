@@ -1,6 +1,6 @@
-﻿{
+{
     "name":  "node-red-contrib-myhome-own-mqtt",
-    "version":  "1.0.0",
+    "version":  "1.0.1",
     "description":  "Professional BTicino / Legrand MyHome SCS OpenWebNet to MQTT bridge for Node-RED with dual output (MQTT and raw OWN) and optional Home Assistant Auto-Discovery",
     "keywords":  [
                      "node-red",
@@ -13,8 +13,11 @@
                      "homeassistant",
                      "scs"
                  ],
-    "author":  "Bruno Leonardi",
-    "license":  "MIT",
+    "author": "Bruno Leonardi <b.leonardi78@gmail.com>",
+    "license": "MIT",
+    "scripts": {
+        "test": "node test/protocol.test.js && node test/lifecycle.test.js"
+    },
     "engines":  {
                     "node":  "\u003e=12.0.0"
                 },
@@ -37,7 +40,7 @@
               ],
     "repository":  {
                        "type":  "git",
-                       "url":  "git+https://github.com/brn78/node-red-contrib-myhome-own-mqtt.git"
+                       "url":  "https://github.com/brn78/node-red-contrib-myhome-own-mqtt.git"
                    },
     "bugs":  {
                  "url":  "https://github.com/brn78/node-red-contrib-myhome-own-mqtt/issues"

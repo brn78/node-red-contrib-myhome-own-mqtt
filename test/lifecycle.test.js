@@ -48,8 +48,13 @@ const mockRED = {
   }
 };
 
-require('../myhome-own-mqtt-gateway.js')(mockRED);
-require('../myhome-own-mqtt.js')(mockRED);
+try {
+  require('../myhome-own-mqtt-gateway.js')(mockRED);
+  require('../myhome-own-mqtt.js')(mockRED);
+} catch (e) {
+  require('./myhome-own-mqtt-gateway.js')(mockRED);
+  require('./myhome-own-mqtt.js')(mockRED);
+}
 
 assert.ok(registeredNodes['myhome-own-mqtt-gateway'], 'Gateway node registered');
 assert.ok(registeredNodes['myhome-own-mqtt'], 'Main node registered');

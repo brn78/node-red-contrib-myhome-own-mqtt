@@ -601,12 +601,12 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
         state.set(`myhome.who.${OwnWho}`, GLOBAL_WHO);
     }
 
-    function sendMqtt(topic, payloadObj) {
+    function sendMqtt(topic, payloadObj, retain = false) {
         let msg = {
             topic: topic,
             payload: JSON.stringify(payloadObj),
             qos: 0,
-            retain: false
+            retain: retain
         };
         mqttMessages.push(msg);
         GlobalWhoStore();
@@ -740,7 +740,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
             OwnWhere = OwnFrame[1];
             OwnWhereTable = GetWhereTable();
 
-            if (OwnWhat === "1" || OwnWhat === "#2" || OwnWhat === "4") {
+            if (OwnWhat === "1" || OwnWhat === "#1" || OwnWhat === "#2" || OwnWhat === "2" || OwnWhat === "4") {
                 ResultState = parseInt(OwnFrame[3], 10) - 100;
                 LIGHT_STATE = (ResultState === 0) ? LIGHT_OFF : LIGHT_ON;
                 LIGHT_BRIGHTNESS = ResultState;
@@ -972,6 +972,18 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
 
                 SetClimateZone(OwnZone, gz);
                 sendClimateMqtt(gz.action, OwnZone, "action", gz);
+                sendMqtt(`${OwnZone}/valves/${CLIMATE_TOPIC}`, {
+                    state: ResultState,
+                    attributes: {
+                        manufacturer: MANUFACTURER,
+                        powered_by: POWERED_BY,
+                        own_function: OwnWhoFunction,
+                        own_event: OwnEvent,
+                        zone: OwnZone,
+                        heating: HeatingValve,
+                        cooling: CoolingValve
+                    }
+                });
                 DebugText = `${OwnWhereTable} zone ${OwnZone} action change to ${gz.action}`;
             } else if (OwnDimension === 20) {
                 OwnWhere = OwnFrame[1].split("#")[0];
@@ -979,6 +991,20 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
                 OwnWhoName = "Actuators";
                 OwnWhereTable = GetWhereTable();
                 ResultState = GetActuatorState(OwnFrame[3]);
+
+                function sendActuatorMqtt(zNum, actId) {
+                    sendMqtt(`${zNum}/actuators/${CLIMATE_TOPIC}`, {
+                        state: ResultState,
+                        attributes: {
+                            manufacturer: MANUFACTURER,
+                            powered_by: POWERED_BY,
+                            own_function: OwnWhoFunction,
+                            own_event: OwnEvent,
+                            zone: zNum,
+                            actuator: actId
+                        }
+                    });
+                }
 
                 if (OwnFrame[1] === "0#0") {
                     let totalZones = CLIMATE_ZONES_COUNT;
@@ -988,6 +1014,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
                         for (let a = 1; a <= 9; a++) gz.actuator[`a${a}`] = ResultState;
                         SetClimateZone(z, gz);
                         sendClimateMqtt(GetActionZone(z), z, "action", gz);
+                        sendActuatorMqtt(z, 0);
                     }
                     DebugText = `${OwnWhereTable} global actuators is set to ${ResultState}`;
                 } else if (OwnFrame[1].endsWith("#0")) {
@@ -996,6 +1023,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
                     for (let a = 1; a <= 9; a++) gz.actuator[`a${a}`] = ResultState;
                     SetClimateZone(OwnZone, gz);
                     sendClimateMqtt(GetActionZone(OwnZone), OwnZone, "action", gz);
+                    sendActuatorMqtt(OwnZone, 0);
                     DebugText = `${OwnWhereTable} zone ${OwnZone}, all actuators is set to ${ResultState}`;
                 } else {
                     OwnActuator = parseInt(OwnFrame[1].split("#")[1], 10);
@@ -1004,6 +1032,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
                     gz.actuator[`a${OwnActuator}`] = ResultState;
                     SetClimateZone(OwnZone, gz);
                     sendClimateMqtt(GetActionZone(OwnZone), OwnZone, "action", gz);
+                    sendActuatorMqtt(OwnZone, OwnActuator);
                     DebugText = `${OwnWhereTable} zone ${OwnZone}, actuator ${OwnActuator} is set to ${ResultState}`;
                 }
             } else if (OwnDimension === 22) {
@@ -1037,7 +1066,7 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
             }
         } else if (OwnEvent.startsWith("*4*")) {
             OwnWhat = parseInt(OwnFrame[1], 10);
-            OwnWhere = (OwnEvent.endsWith("#0##")) ? 0 : OwnFrame[2].replace("#", "");
+            OwnWhere = (OwnEvent.endsWith("#0##")) ? 0 : parseInt((OwnFrame[2] || "").replace(/#/g, "") || "0", 10);
             OwnZone = parseInt(OwnWhere, 10);
 
             let gz = GetClimateZone(OwnZone);
@@ -1174,16 +1203,19 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
         if (infoText) {
             ResultState = infoText;
             DebugText = `${OwnWhoFunction} is ${ResultState}`;
+            let attrObj = {
+                manufacturer: MANUFACTURER,
+                powered_by: POWERED_BY,
+                own_function: OwnWhoFunction,
+                own_event: OwnEvent,
+                info: ResultState
+            };
+            if (OwnWhat === 15) attrObj.model = ResultState;
+            if (OwnWhat === 16) attrObj.firmware = ResultState;
             sendMqtt(GATEWAY_TOPIC, {
                 state: GATEWAY_ON,
-                attributes: {
-                    manufacturer: MANUFACTURER,
-                    powered_by: POWERED_BY,
-                    own_function: OwnWhoFunction,
-                    own_event: OwnEvent,
-                    info: ResultState
-                }
-            });
+                attributes: attrObj
+            }, true);
         }
     } else if (OwnWho === 14) {
         OwnWhoFunction = "Light Special";
@@ -1297,8 +1329,14 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
         } else if (OwnEvent.startsWith("*25*21#") || OwnEvent.startsWith("*25*22#") || OwnEvent.startsWith("*25*23#") || OwnEvent.startsWith("*25*24#")) {
             OwnWhoFunction = "CEN+";
             OwnWhoName = "Button";
-            let BUTTON_NUMBER = parseInt(OwnFrame[1].substring(3), 10);
-            OwnWhere = OwnFrame[2].substring(1);
+            let btnPart = OwnFrame[1].split("#")[1] || OwnFrame[1].substring(3);
+            let BUTTON_NUMBER = parseInt(btnPart, 10);
+            let cenWhere = (OwnFrame[2] || "").replace(/^#/, "").split("#")[0];
+            if (cenWhere.length > 1 && cenWhere.startsWith("2")) {
+                cenWhere = cenWhere.substring(1);
+            }
+            let whereInt = parseInt(cenWhere, 10);
+            OwnWhere = !isNaN(whereInt) ? whereInt.toString() : cenWhere;
             OwnWhereTable = GetWhereTable();
 
             function sendCenPlusMqtt(st, tr) {
@@ -1337,8 +1375,14 @@ function parseOwnEvent(OwnEvent, options = {}, state = null) {
         } else if (OwnEvent.startsWith("*25*25#") || OwnEvent.startsWith("*25*26#") || OwnEvent.startsWith("*25*27#") || OwnEvent.startsWith("*25*28#")) {
             OwnWhoFunction = "Rotary Selector";
             OwnWhoName = "Selector";
-            let BUTTON_NUMBER = parseInt(OwnFrame[1].substring(3), 10);
-            OwnWhere = OwnFrame[2].substring(1);
+            let btnPart = OwnFrame[1].split("#")[1] || OwnFrame[1].substring(3);
+            let BUTTON_NUMBER = parseInt(btnPart, 10);
+            let cenWhere = (OwnFrame[2] || "").replace(/^#/, "").split("#")[0];
+            if (cenWhere.length > 1 && cenWhere.startsWith("2")) {
+                cenWhere = cenWhere.substring(1);
+            }
+            let whereInt = parseInt(cenWhere, 10);
+            OwnWhere = !isNaN(whereInt) ? whereInt.toString() : cenWhere;
             OwnWhereTable = GetWhereTable();
 
             const rotMap = {
@@ -1596,26 +1640,21 @@ function buildOwnCommands(topic, payload, options = {}, state = null) {
             let setpointDelta = parseInt(commandNumber, 10) || 0;
             if (setpointDelta === 0) return [];
 
-            let zonesList = isCentralUnit ? [0] : (options.climate_zones || '').split(",").map(z => parseInt(z.trim(), 10)).filter(z => !isNaN(z));
-            for (let z of zonesList) {
-                if (z < 0 || z > 99) continue;
-                let cMode = getGlobalClimateMode(z) ?? "off";
-                let setpointTarget = state.get(`myhome.climate.zones.${z}.setpoint.state`) || 20;
-                if (typeof setpointTarget === 'number') {
-                    setpointTarget += setpointDelta;
-                    let tempFormatted = getTemperature(setpointTarget);
-                    if (cMode === "off") {
-                        commands.push(`*#4*${z}##`);
-                    } else if (cMode === "heat") {
-                        commands.push(`*#4*${z}*#7*1*1*${tempFormatted}##`);
-                    } else if (cMode === "cool") {
-                        commands.push(`*#4*${z}*#7*2*1*${tempFormatted}##`);
-                    } else if (cMode === "auto" || cMode === "generic") {
-                        commands.push(`*#4*${z}*#7*3*1*${tempFormatted}##`);
-                    }
+            let targetZone = isCentralUnit ? 0 : zone;
+            let cMode = getGlobalClimateMode(targetZone) ?? "off";
+            let setpointTarget = state.get(`myhome.climate.zones.${targetZone}.setpoint.state`) || 20;
+            if (typeof setpointTarget === 'number') {
+                setpointTarget += setpointDelta;
+                let tempFormatted = getTemperature(setpointTarget);
+                if (cMode === "heat") {
+                    commands.push(`*#4*${targetZone}*#7*1*1*${tempFormatted}##`);
+                } else if (cMode === "cool") {
+                    commands.push(`*#4*${targetZone}*#7*2*1*${tempFormatted}##`);
+                } else if (cMode === "auto" || cMode === "generic") {
+                    commands.push(`*#4*${targetZone}*#7*3*1*${tempFormatted}##`);
                 }
             }
-            return commands;
+            return commands.length > 0 ? commands : [];
         } else if (isClimateSP && temperature) {
             let cMode = getGlobalClimateMode(zone) ?? "off";
             if (cMode === "heat") {
@@ -1629,9 +1668,8 @@ function buildOwnCommands(topic, payload, options = {}, state = null) {
             return commands;
         } else if (isClimateMode) {
             let cMode = (commandString === "on") ? getGlobalClimateMode(zone) : commandString;
-            let gMode = isCentralUnit ? globalClimateMode : cMode;
 
-            if (isCentralUnit) {
+            if (isCentralUnit && zone === 0) {
                 if (cMode === "off") {
                     return [climateOff === 0 ? `*4*303*#0##` : `*4*302*#0##`];
                 } else if (cMode === "heat") {
@@ -1643,14 +1681,14 @@ function buildOwnCommands(topic, payload, options = {}, state = null) {
                 }
             } else if (cMode === "off") {
                 commands.push(climateOff === 0 ? `*4*303*${zone}##` : `*4*302*${zone}##`);
-            } else if (cMode === "heat" && gMode === cMode && gMode !== "off") {
-                let t = state.get(`myhome.climate.zones.${zone}.setpoint.heating`) || state.get(`myhome.climate.zones.${zone}.setpoint.state`) || 20;
+            } else if (cMode === "heat") {
+                let t = state.get(`myhome.climate.zones.${zone}.setpoint.heating`) || 20;
                 commands.push(`*#4*${zone}*#7*1*1*${getTemperature(t)}##`);
-            } else if (cMode === "cool" && gMode === cMode && gMode !== "off") {
-                let t = state.get(`myhome.climate.zones.${zone}.setpoint.cooling`) || state.get(`myhome.climate.zones.${zone}.setpoint.state`) || 22;
+            } else if (cMode === "cool") {
+                let t = state.get(`myhome.climate.zones.${zone}.setpoint.cooling`) || 22;
                 commands.push(`*#4*${zone}*#7*2*1*${getTemperature(t)}##`);
             } else if (cMode === "auto" || cMode === "generic") {
-                let t = state.get(`myhome.climate.zones.${zone}.setpoint.offset`) || state.get(`myhome.climate.zones.${zone}.setpoint.state`) || 23;
+                let t = state.get(`myhome.climate.zones.${zone}.setpoint.offset`) || 23;
                 commands.push(`*#4*${zone}*#7*3*1*${getTemperature(t)}##`);
             }
             commands.push(`*#4*${zone}##`);

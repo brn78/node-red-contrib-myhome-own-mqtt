@@ -137,7 +137,7 @@ module.exports = function (RED) {
                     topic: proto.CONNECTION_TOPIC,
                     payload: JSON.stringify(update),
                     qos: 0,
-                    retain: false,
+                    retain: true,
                     _msgid: RED.util.generateId()
                 },
                 null
@@ -256,16 +256,24 @@ module.exports = function (RED) {
             onConnected();
         }
 
-        // Watchdog gateway model query: *#13**15##
-        if (node.watchdog && node.watchdog_interval > 0) {
-            watchdogTimer = setInterval(function () {
-                if (node.gateway && node.gateway.isConnected) {
+        // Heartbeat & Watchdog timer
+        // Keeps connection/myhome/status alive (prevents HA expire_after: 300)
+        // and queries gateway diagnostics (*#13**15##)
+        let watchdogIntervalSec = parseInt(node.watchdog_interval, 10) || 60;
+        if (watchdogIntervalSec <= 0) watchdogIntervalSec = 60;
+
+        watchdogTimer = setInterval(function () {
+            if (node.gateway && node.gateway.isConnected) {
+                // Heartbeat to keep binary_sensor.myhome_system alive in Home Assistant
+                sendConnectionStatus("ON");
+
+                if (node.watchdog) {
                     node.gateway.executeCommands(["*#13**15##"], null, function (failed, err) {
                         if (node.debug_warn) node.warn(`Watchdog check failed: ${err}`);
                     });
                 }
-            }, node.watchdog_interval * 1000);
-        }
+            }
+        }, watchdogIntervalSec * 1000);
 
         // Periodic sync timer
         if (node.sync_interval > 0) {
@@ -276,12 +284,27 @@ module.exports = function (RED) {
 
         /**
          * Handle incoming flow input messages
+         * Implements exact Node-RED filter:
+         * if (msg.topic) {
+         *   if (msg.topic.endsWith("/status")) return null;
+         *   if (msg.topic.includes("/myhome/")) return [msg, null];
+         *   return null;
+         * } else {
+         *   return [null, msg];
+         * }
          */
         node.on("input", function (msg, send, done) {
-            // Filter out /status topics to prevent loops
-            if (msg.topic && typeof msg.topic === 'string' && msg.topic.endsWith("/status")) {
-                if (done) done();
-                return;
+            if (msg.topic && typeof msg.topic === 'string') {
+                // Filtro i messaggi di status per evitare loop
+                if (msg.topic.endsWith("/status")) {
+                    if (done) done();
+                    return;
+                }
+                // Passano solo i messaggi destinati a myhome
+                if (!msg.topic.includes("/myhome/")) {
+                    if (done) done();
+                    return;
+                }
             }
 
             // Convert buffer payload to string if needed

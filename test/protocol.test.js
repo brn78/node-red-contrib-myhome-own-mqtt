@@ -6,7 +6,12 @@
 "use strict";
 
 const assert = require("assert");
-const proto = require("../myhome-protocol");
+let proto;
+try {
+    proto = require("../myhome-protocol");
+} catch (e) {
+    proto = require("./myhome-protocol");
+}
 
 console.log("Starting unit tests for myhome-protocol.js...\n");
 
@@ -275,6 +280,64 @@ test("buildDiscoveryMessage: generates Home Assistant contact config", () => {
     let payload = JSON.parse(disco.payload);
     assert.strictEqual(payload.device_class, "opening");
     assert.strictEqual(payload.state_topic, "1/contact/myhome/status");
+});
+
+// 6. Regression tests for subflow parity & Home Assistant compatibility
+test("parseOwnEvent: CEN+ button 2 address 2 strips family prefix (*25*21#2*22##)", () => {
+    let res = proto.parseOwnEvent("*25*21#2*22##");
+    assert.strictEqual(res.mqttMessages[0].topic, "2/2/button/plus/myhome/status");
+    let payload = JSON.parse(res.mqttMessages[0].payload);
+    assert.strictEqual(payload.state, "ON");
+    assert.strictEqual(payload.trigger, "PRESSED");
+    assert.strictEqual(payload.attributes.powered_by, "Bruno Leonardi");
+    assert.strictEqual(payload.attributes.button_number, 2);
+});
+
+test("parseOwnEvent: Dimmer level dimension parsing (*#1*11*#1*150*0##)", () => {
+    let res = proto.parseOwnEvent("*#1*11*#1*150*0##");
+    assert.strictEqual(res.mqttMessages.length, 1);
+    assert.strictEqual(res.mqttMessages[0].topic, "11/00/light/myhome/status");
+    let payload = JSON.parse(res.mqttMessages[0].payload);
+    assert.strictEqual(payload.attributes.brightness, 50);
+});
+
+test("parseOwnEvent: Climate valves topic (*#4*1*19*1*1##)", () => {
+    let res = proto.parseOwnEvent("*#4*1*19*1*1##");
+    let vMsg = res.mqttMessages.find(m => m.topic === "1/valves/climate/myhome/status");
+    assert.ok(vMsg, "valves topic should be published");
+    let payload = JSON.parse(vMsg.payload);
+    assert.strictEqual(payload.state, "ON");
+    assert.strictEqual(payload.attributes.zone, 1);
+});
+
+test("parseOwnEvent: Climate actuators topic (*#4*1*20*1##)", () => {
+    let res = proto.parseOwnEvent("*#4*1*20*1##");
+    let aMsg = res.mqttMessages.find(m => m.topic === "1/actuators/climate/myhome/status");
+    assert.ok(aMsg, "actuators topic should be published");
+});
+
+test("parseOwnEvent: Gateway model and firmware attributes", () => {
+    let rModel = proto.parseOwnEvent("*#13**15*51##");
+    let pModel = JSON.parse(rModel.mqttMessages[0].payload);
+    assert.strictEqual(pModel.attributes.model, "F454");
+
+    let rFw = proto.parseOwnEvent("*#13**16*1*0*40##");
+    let pFw = JSON.parse(rFw.mqttMessages[0].payload);
+    assert.strictEqual(pFw.attributes.firmware, "ver. 1 rel. 0 build 40");
+});
+
+test("buildOwnCommands: Climate mode heat sends setpoint and status check", () => {
+    let cmds = proto.buildOwnCommands("1/mode/climate/myhome/set", "heat");
+    assert.ok(cmds.includes("*#4*1*#7*1*1*2000##"));
+    assert.ok(cmds.includes("*#4*1##"));
+});
+
+test("buildOwnCommands: Climate setpoint delta targets specific zone", () => {
+    let state = new proto.StateManager();
+    state.set("myhome.climate.zones.2.mode", "heat");
+    state.set("myhome.climate.zones.2.setpoint.state", 20);
+    let cmds = proto.buildOwnCommands("2/setpoint/delta/climate/myhome/set", 1, {}, state);
+    assert.deepStrictEqual(cmds, ["*#4*2*#7*1*1*2100##"]);
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed.`);
