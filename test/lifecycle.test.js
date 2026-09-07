@@ -101,6 +101,12 @@ let ownRawMsg = sentMessages.find(pair => pair[1] && pair[1].payload === '*1*1*2
 assert.ok(ownRawMsg, 'Found raw OWN frame on port 2');
 assert.strictEqual(ownRawMsg[1].payload, '*1*1*21##');
 
+let connStatusMsg = sentMessages.find(pair => pair[0] && pair[0].topic === 'connection/myhome/status');
+assert.ok(connStatusMsg, 'Found connection/myhome/status on port 1 on frame reception');
+let connPayload = JSON.parse(connStatusMsg[0].payload);
+assert.strictEqual(connPayload.state, 'ON');
+assert.strictEqual(connPayload.attributes.manufacturer, 'BTicino MyHome');
+
 // Cleanup
 mn.emit('close', false, () => {});
 gw.emit('close', () => {});

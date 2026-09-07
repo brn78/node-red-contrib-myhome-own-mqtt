@@ -162,6 +162,9 @@ module.exports = function (RED) {
 
         // Gateway event: frame received on monitoring session
         const onFrame = function (frame) {
+            // Emette connection/myhome/status ad ogni ricezione di frame OpenWebNet dal bus
+            sendConnectionStatus("ON");
+
             const result = proto.parseOwnEvent(frame, options, stateStore);
 
             // Output 1: Formatted MQTT messages
@@ -251,20 +254,31 @@ module.exports = function (RED) {
         node.gateway.on("connected", onConnected);
         node.gateway.on("disconnected", onDisconnected);
 
-        // Check if gateway is already connected when this node starts
-        if (node.gateway.isConnected) {
-            onConnected();
-        }
+        // Invio stato di connessione iniziale all'avvio dopo 1000ms (quando i collegamenti Node-RED sono attivi)
+        setTimeout(function () {
+            if (node.gateway) {
+                if (node.gateway.isConnected) {
+                    node.status({ fill: "green", shape: "dot", text: "Connected" });
+                    sendConnectionStatus("ON");
+                    if (node.mqtt_discovery) {
+                        publishAllConfiguredDiscoveries();
+                    }
+                } else {
+                    node.status({ fill: "yellow", shape: "ring", text: "Connecting" });
+                    sendConnectionStatus("OFF");
+                }
+            }
+        }, 1000);
 
-        // Heartbeat & Watchdog timer
-        // Keeps connection/myhome/status alive (prevents HA expire_after: 300)
-        // and queries gateway diagnostics (*#13**15##)
-        let watchdogIntervalSec = parseInt(node.watchdog_interval, 10) || 60;
-        if (watchdogIntervalSec <= 0) watchdogIntervalSec = 60;
+        // Heartbeat & Watchdog timer a cadenza (default ogni 30 secondi)
+        // Mantiene vivo connection/myhome/status in Home Assistant (expire_after: 300)
+        // ed esegue la diagnostica gateway (*#13**15##)
+        let watchdogIntervalSec = parseInt(node.watchdog_interval, 10) || 30;
+        if (watchdogIntervalSec <= 0) watchdogIntervalSec = 30;
 
         watchdogTimer = setInterval(function () {
             if (node.gateway && node.gateway.isConnected) {
-                // Heartbeat to keep binary_sensor.myhome_system alive in Home Assistant
+                // Heartbeat a cadenza periodica per Home Assistant
                 sendConnectionStatus("ON");
 
                 if (node.watchdog) {
